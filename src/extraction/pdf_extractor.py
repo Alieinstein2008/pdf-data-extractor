@@ -1,21 +1,26 @@
 import pdfplumber
 
+from extraction.extraction_config import (
+    FA_NUMBER_PATTERN,
+    LAST_ROW_BOTTOM_OFFSET,
+    TABLE_COLUMNS,
+    TABLE_END_PATTERN,
+    TABLE_HEIGHT_RATIO,
+    TABLE_WIDTH_RATIO,
+    METADATA_LABELS,
+    DELIVERY_NOTE_TOP_OFFSET,
+    DELIVERY_NOTE_BOTTOM_OFFSET,
+    UNIT_BOTTOM_OFFSET,
+)
+
+
 def locate_table_columns(page):
-    return {
-        "initial": page.search("NºFA"),
-        "intermediate": page.search("Consumidor"),
-        "final": page.search("Fornecedor"),
-    }
+    return {key: page.search(label) for key, label in TABLE_COLUMNS.items()}
+
 
 def locate_metadata(page):
-    return {
-        "unit": page.search("Unidade:")[0],
-        "date": page.search("Data:")[0],
-        "issuer": page.search("Por:")[0],
-        "delivery_note": page.search("Guia Nº:")[0],
-        "procedure": page.search("Trâmite:")[0],
-        "complement": page.search("Complemento:")[0],
-    }
+    return {key: page.search(label)[0] for key, label in METADATA_LABELS.items()}
+
 
 def validate_table_columns(columns):
     required_columns = [
@@ -25,6 +30,7 @@ def validate_table_columns(columns):
     ]
 
     return all(columns[column] for column in required_columns)
+
 
 def extract_page_rows(
     page,
@@ -36,16 +42,18 @@ def extract_page_rows(
 ):
     rows = []
 
-    end_of_table_marker = page.search(r"Total de FA´s:\s\d+")
+    end_of_table_marker = page.search(TABLE_END_PATTERN, regex=True)
 
     final_table_height = (
-        page.height * 0.93 if not end_of_table_marker else end_of_table_marker[0]["top"]
+        page.height * TABLE_HEIGHT_RATIO
+        if not end_of_table_marker
+        else end_of_table_marker[0]["top"]
     )
 
-    dynamic_table_width = page.width * 0.910
+    dynamic_table_width = page.width * TABLE_WIDTH_RATIO
 
     matches = page.search(
-        r"\d{2}.\d{3}.\d{3}.\d{2}-\d{7}",
+        FA_NUMBER_PATTERN,
         regex=True,
     )
 
@@ -76,7 +84,7 @@ def extract_page_rows(
         unit_locale_locator["x1"],
         unit_locale_locator["top"],
         first_page.width,
-        unit_locale_locator["bottom"] + 0.5,
+        unit_locale_locator["bottom"] + UNIT_BOTTOM_OFFSET,
     )
 
     date_text_area = (
@@ -95,9 +103,9 @@ def extract_page_rows(
 
     delivery_note_text_area = (
         delivery_note_locator["x1"],
-        delivery_note_locator["top"] - 1,
+        delivery_note_locator["top"] - DELIVERY_NOTE_TOP_OFFSET,
         first_page.width,
-        delivery_note_locator["bottom"] + 1,
+        delivery_note_locator["bottom"] + DELIVERY_NOTE_BOTTOM_OFFSET,
     )
 
     procedure_text_area = (
@@ -129,7 +137,7 @@ def extract_page_rows(
             match["x0"],
             match["top"],
             intermediate_column[1]["x0"],
-            next_match_top - 0.1,
+            next_match_top - LAST_ROW_BOTTOM_OFFSET,
         )
 
         text_area_2 = (
@@ -168,6 +176,7 @@ def extract_page_rows(
         )
 
     return rows
+
 
 def extract_table_data(path):
     table_data = []
