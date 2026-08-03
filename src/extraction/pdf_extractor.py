@@ -13,23 +13,43 @@ from extraction.extraction_config import (
     UNIT_BOTTOM_OFFSET,
 )
 
+from extraction.extraction_error import PDFExtractionError
+
 
 def locate_table_columns(page):
     return {key: page.search(label) for key, label in TABLE_COLUMNS.items()}
 
 
 def locate_metadata(page):
-    return {key: page.search(label)[0] for key, label in METADATA_LABELS.items()}
+
+    metadata = {}
+
+    for key, label in METADATA_LABELS.items():
+
+        matches = page.search(label)
+
+        if not matches:
+            raise PDFExtractionError(f"Metadado não encontrado: {label}")
+
+        metadata[key] = matches[0]
+
+    return metadata
 
 
 def validate_table_columns(columns):
+
     required_columns = [
         "initial",
         "intermediate",
         "final",
     ]
 
-    return all(columns[column] for column in required_columns)
+    missing_columns = [column for column in required_columns if not columns[column]]
+
+    if missing_columns:
+        raise PDFExtractionError(
+            "Colunas obrigatórias não encontradas: " + ", ".join(missing_columns)
+        )
 
 
 def extract_page_rows(
@@ -179,31 +199,44 @@ def extract_page_rows(
 
 
 def extract_table_data(path):
-    table_data = []
 
-    with pdfplumber.open(path) as pdf:
+    try:
 
-        first_page = pdf.pages[0]
+        with pdfplumber.open(path) as pdf:
 
-        columns = locate_table_columns(first_page)
+            if not pdf.pages:
+                raise PDFExtractionError("Documento não possui páginas.")
 
-        if not validate_table_columns(columns):
-            print("Documento invalido")
-            return []
+            first_page = pdf.pages[0]
 
-        metadata = locate_metadata(first_page)
+            columns = locate_table_columns(first_page)
 
-        for page_num, page in enumerate(pdf.pages, start=1):
+            validate_table_columns(columns)
 
-            rows = extract_page_rows(
-                page=page,
-                first_page=first_page,
-                columns=columns,
-                metadata=metadata,
-                path=path,
-                page_num=page_num,
-            )
+            metadata = locate_metadata(first_page)
 
-            table_data.extend(rows)
+            table_data = []
 
-        return table_data
+            for page_num, page in enumerate(
+                pdf.pages,
+                start=1,
+            ):
+
+                rows = extract_page_rows(
+                    page=page,
+                    first_page=first_page,
+                    columns=columns,
+                    metadata=metadata,
+                    path=path,
+                    page_num=page_num,
+                )
+
+                table_data.extend(rows)
+
+            return table_data
+
+    except PDFExtractionError:
+        raise
+
+    except Exception as error:
+        raise PDFExtractionError(f"Falha ao processar o PDF: {error}") from error

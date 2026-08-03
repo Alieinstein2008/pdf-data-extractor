@@ -2,6 +2,7 @@ import glob
 import os
 
 from extraction.pdf_extractor import extract_table_data
+from extraction.extraction_error import PDFExtractionError
 
 
 def find_pdf_files(origin_directory):
@@ -22,10 +23,20 @@ def process_batch(origin_directory):
 
     for path in file_paths:
 
-        print(f"Processando: " f"{os.path.basename(path)}...")
+        filename = os.path.basename(path)
 
-        table_data = extract_table_data(path)
+        print(f"Processando: {filename}...")
 
-        data_batch.extend(table_data)
+        try:
+
+            table_data = extract_table_data(path)
+
+            data_batch.extend(table_data)
+
+            print(f"OK — " f"{len(table_data)} registros extraídos.")
+
+        except PDFExtractionError as error:
+
+            print(f"ERRO — {filename}: {error}")
 
     return data_batch
