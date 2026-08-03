@@ -71,7 +71,7 @@ pdf-data-extractor/
 Clone o repositório:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Alieinstein2008/pdf-data-extractor.git
 cd pdf-data-extractor
 ```
 
