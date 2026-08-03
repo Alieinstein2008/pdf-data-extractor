@@ -1,5 +1,13 @@
+from processing.batch_processor import process_batch
+
+
 def main():
-    print("PDF Data Extractor")
+
+    input_directory = "./data/input"
+
+    data = process_batch(input_directory)
+
+    print(f"Registros extraídos: {len(data)}")
 
 
 if __name__ == "__main__":
